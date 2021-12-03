@@ -7,13 +7,25 @@ from bs4 import BeautifulSoup
 import mysql.connector
 from pprint import pprint
 
+data = []
+
 db = mysql.connector.connect(
 	host = "localhost",
 	user = "root",
 	password="HvDkORF2",
 	database = "bazar"
 )
-data = []
+
+def get_url():
+	url = "https://www.bazos.sk"
+	odkazy = []
+	stranka = requests.get(url).text
+	soup = BeautifulSoup(stranka, 'html.parser')
+	a = soup.find_all("span", class_="nadpisnahlavni")
+	for linky in a:
+		f = linky.find("a", href=True)['href']
+		odkazy.append({"URL": f})
+	return odkazy
 def agg(nazov):
 	url = "https://auto.bazos.sk/10"
 	stranka = requests.get(url).text
@@ -25,7 +37,6 @@ def agg(nazov):
 		cena = inzerat.select('.inzeratycena')[0].text
 		data.append({"Nadpis": nadpis, "Popis": popis, "Cena": cena})
 	db_zapis(data)
-
 def db_zapis(data):
 	kurzor = db.cursor()
 	SQL = "INSERT INTO bazar_raw (nazov, popis, cena, nazov_md5, popis_md5, odtlacok) VALUES (%s, %s, %s, %s, %s, %s)"
@@ -39,7 +50,6 @@ def db_zapis(data):
 	db.commit()
 
 if __name__ == "__main__":
-	x = threading.Thread(target=agg, args=(1,), daemon=True)
+	x = threading.Thread(target=get_url, daemon=True)
 	x.start()
 	x.join()
-	
