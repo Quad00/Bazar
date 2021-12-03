@@ -26,8 +26,17 @@ def get_url():
 		f = linky.find("a", href=True)['href']
 		odkazy.append({"URL": f})
 	return odkazy
-def agg(nazov):
-	url = "https://auto.bazos.sk/10"
+def agg(nazov, url):
+	url = url + "9999999999999999999" + "/"
+	strankovanie_req = requests.get(url).text
+	strankovanie = BeautifulSoup(strankovanie_req, 'html.parser')
+	strankovanie_linky = strankovanie.find_all("div", class_="strankovani")
+	for lnks in strankovanie_linky:
+		lnkss = lnks.find("a", href=True)['href']
+	pocet_str = lnkss[1:-1]
+	pocet_int = int(pocet_str)/20
+	pocet = int(pocet_int)
+
 	stranka = requests.get(url).text
 	soup = BeautifulSoup(stranka, 'html.parser')
 	a = soup.find_all("div", class_="inzeraty inzeratyflex")
@@ -50,6 +59,6 @@ def db_zapis(data):
 	db.commit()
 
 if __name__ == "__main__":
-	x = threading.Thread(target=get_url, daemon=True)
+	x = threading.Thread(target=agg, args=(1, "https://auto.bazos.sk/",), daemon=True)
 	x.start()
 	x.join()
