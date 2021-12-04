@@ -10,12 +10,6 @@ from pprint import pprint
 
 data = []
 
-db = mysql.connector.connect(
-	host = "localhost",
-	user = "root",
-	password="HvDkORF2",
-	database = "bazar"
-)
 
 def get_url():
 	url = "https://www.bazos.sk"
@@ -27,8 +21,8 @@ def get_url():
 		f = linky.find("a", href=True)['href']
 		odkazy.append({"URL": f})
 	return odkazy
-def agg(url):
-	url_pocet = url + "9999999999999999999" + "/"
+def agg(cislo,url):
+	url_pocet = url + "9999999999999999999" + "/" 
 	strankovanie_req = requests.get(url_pocet).text
 	strankovanie = BeautifulSoup(strankovanie_req, 'html.parser')
 	strankovanie_linky = strankovanie.find_all("div", class_="strankovani")
@@ -39,11 +33,11 @@ def agg(url):
 	pocet = int(pocet_int)
 	k = 20
 	host = url.partition('://')[2]
-	kategoria = host.partition('.')[0]
+	kategoriaa = host.partition('.')[0]
 	for f in range(pocet):
-		url = url + str(k) + "/"
+		url2 = url + str(k) + "/"
 		k = k+20	
-		stranka = requests.get(url).text
+		stranka = requests.get(url2).text
 		soup = BeautifulSoup(stranka, 'html.parser')
 		a = soup.find_all("div", class_="inzeraty inzeratyflex")
 		for inzerat in a:
@@ -51,8 +45,17 @@ def agg(url):
 			popis = inzerat.select('.popis')[0].text
 			cena = inzerat.select('.inzeratycena')[0].text
 			data.append({"Nadpis": nadpis, "Popis": popis, "Cena": cena})
-		db_zapis(data,kategoria)
-def db_zapis(data, kategoria):
+		db_zapis(data,kategoriaa)
+		#data.clear()
+		kategoria = ""
+		print("Thread " + str(cislo) + " slo spat" + "URL: " + url2)
+def db_zapis(data, kategoria):	
+	db = mysql.connector.connect(
+        host = "localhost",
+        user = "root",
+        password="HvDkORF2",
+        database = "bazar"
+	)
 	kurzor = db.cursor()
 	SQL = "INSERT INTO bazar_raw (nazov, popis, cena, nazov_md5, popis_md5, odtlacok, kategoria) VALUES (%s, %s, %s, %s, %s, %s, %s)"
 	for a in range(len(data)):
@@ -63,16 +66,23 @@ def db_zapis(data, kategoria):
 		val = (data[a]["Nadpis"], data[a]["Popis"], data[a]["Cena"], nazov_md5, popis_md5, odtlacok, kategoria)
 		kurzor.execute(SQL,val)
 	db.commit()
-	data = []
-
+	kategoria = ""
 if __name__ == "__main__":
 	url_list = get_url()
 	id = 1
+#	agg(1, "https://auto.bazos.sk/")
+	thread_list = []
 	for l in url_list:
-		id = threading.Thread(target=agg,args=(l,), daemon=True)
-		id.start()
-		id.join()
+		link = str(l["URL"])
+		print(link)
+		thread = threading.Thread(target=agg,args=(id,link,),)
+		#thread_list.append(thread)
 		id = id+1	
+
+	for thread in thread_list:
+		thread.start()
+	for thread in thread_list:
+		thread.join()
 	#x = threading.Thread(target=agg, args=(1, "https://auto.bazos.sk/",), daemon=True)
 	#x.start()
 	#x.join()
