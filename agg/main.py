@@ -1,3 +1,5 @@
+from multiprocessing import Process
+import os
 import requests
 import re
 import logging
@@ -22,6 +24,15 @@ def get_url():
 		odkazy.append({"URL": f})
 	return odkazy
 def agg(cislo,url):
+	db = mysql.connector.connect(
+	host = "localhost",
+	user = "root",
+	password="HvDkORF2",
+	database = "bazar"
+	)
+	kurzor = db.cursor()
+	SQL = "INSERT INTO bazar_raw (nazov, popis, cena, nazov_md5, popis_md5, odtlacok, kategoria) VALUES (%s, %s, %s, %s, %s, %s, %s)"
+
 	url_pocet = url + "9999999999999999999" + "/" 
 	strankovanie_req = requests.get(url_pocet).text
 	strankovanie = BeautifulSoup(strankovanie_req, 'html.parser')
@@ -44,12 +55,23 @@ def agg(cislo,url):
 			nadpis = inzerat.select('.nadpis')[0].text		
 			popis = inzerat.select('.popis')[0].text
 			cena = inzerat.select('.inzeratycena')[0].text
-			data.append({"Nadpis": nadpis, "Popis": popis, "Cena": cena})
-		db_zapis(data,kategoriaa)
+			nazov_md5 = hashlib.md5(nadpis.encode("utf-8")).hexdigest()
+			popis_md5 = hashlib.md5(popis.encode("utf-8")).hexdigest()
+			odtlacok_c = nazov_md5 + popis_md5
+			odtlacok = hashlib.md5(odtlacok_c.encode("utf-8")).hexdigest()
+			val = (nadpis, popis, cena,nazov_md5, popis_md5, odtlacok, kategoriaa)
+			data.append({"Nadpis": nadpis, "Popis": popis, "Cena": cena, "Kategoria":kategoriaa})
+			kurzor.execute(SQL,val)
+			db.commit()
+			val = ""
+			print("Thread " + str(cislo) + " slo spat" + "URL: " + url2)
+
+	kurzor.close()
+		#db_zapis(data)
 		#data.clear()
-		kategoria = ""
-		print("Thread " + str(cislo) + " slo spat" + "URL: " + url2)
-def db_zapis(data, kategoria):	
+	#print("Thread " + str(cislo) + " slo spat" + "URL: " + url2)
+def db_zapis(data):
+		
 	db = mysql.connector.connect(
         host = "localhost",
         user = "root",
@@ -58,15 +80,19 @@ def db_zapis(data, kategoria):
 	)
 	kurzor = db.cursor()
 	SQL = "INSERT INTO bazar_raw (nazov, popis, cena, nazov_md5, popis_md5, odtlacok, kategoria) VALUES (%s, %s, %s, %s, %s, %s, %s)"
-	for a in range(len(data)):
+	for a in range(len(data)-1):
 		nazov_md5 = hashlib.md5(data[a]["Nadpis"].encode("utf-8")).hexdigest()
 		popis_md5 = hashlib.md5(data[a]["Popis"].encode("utf-8")).hexdigest()
 		odtlacok_c = nazov_md5 + popis_md5
 		odtlacok = hashlib.md5(odtlacok_c.encode("utf-8")).hexdigest()
-		val = (data[a]["Nadpis"], data[a]["Popis"], data[a]["Cena"], nazov_md5, popis_md5, odtlacok, kategoria)
+		val = (data[a]["Nadpis"], data[a]["Popis"], data[a]["Cena"], nazov_md5, popis_md5, odtlacok, data[a]["Kategoria"])
 		kurzor.execute(SQL,val)
+		#val = ""
 	db.commit()
+	#val = ""
+	#data.clear()
 	kategoria = ""
+	kurzor.close()
 if __name__ == "__main__":
 	url_list = get_url()
 	id = 1
@@ -76,13 +102,12 @@ if __name__ == "__main__":
 		link = str(l["URL"])
 		print(link)
 		thread = threading.Thread(target=agg,args=(id,link,),)
-		#thread_list.append(thread)
+		thread.daemon = True
+		thread_list.append(thread)
 		id = id+1	
 
 	for thread in thread_list:
 		thread.start()
 	for thread in thread_list:
+#		print(thread)
 		thread.join()
-	#x = threading.Thread(target=agg, args=(1, "https://auto.bazos.sk/",), daemon=True)
-	#x.start()
-	#x.join()
