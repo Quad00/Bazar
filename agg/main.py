@@ -1,4 +1,5 @@
 import requests
+import re
 import logging
 import threading
 import time
@@ -27,8 +28,8 @@ def get_url():
 		odkazy.append({"URL": f})
 	return odkazy
 def agg(nazov, url):
-	url = url + "9999999999999999999" + "/"
-	strankovanie_req = requests.get(url).text
+	url_pocet = url + "9999999999999999999" + "/"
+	strankovanie_req = requests.get(url_pocet).text
 	strankovanie = BeautifulSoup(strankovanie_req, 'html.parser')
 	strankovanie_linky = strankovanie.find_all("div", class_="strankovani")
 	for lnks in strankovanie_linky:
@@ -36,29 +37,39 @@ def agg(nazov, url):
 	pocet_str = lnkss[1:-1]
 	pocet_int = int(pocet_str)/20
 	pocet = int(pocet_int)
-
-	stranka = requests.get(url).text
-	soup = BeautifulSoup(stranka, 'html.parser')
-	a = soup.find_all("div", class_="inzeraty inzeratyflex")
-	for inzerat in a:
-		nadpis = inzerat.select('.nadpis')[0].text		
-		popis = inzerat.select('.popis')[0].text
-		cena = inzerat.select('.inzeratycena')[0].text
-		data.append({"Nadpis": nadpis, "Popis": popis, "Cena": cena})
-	db_zapis(data)
-def db_zapis(data):
+	k = 20
+	host = url.partition('://')[2]
+	kategoria = host.partition('.')[0]
+	for f in range(pocet):
+		url = url + str(k) + "/"
+		k = k+20	
+		stranka = requests.get(url).text
+		soup = BeautifulSoup(stranka, 'html.parser')
+		a = soup.find_all("div", class_="inzeraty inzeratyflex")
+		for inzerat in a:
+			nadpis = inzerat.select('.nadpis')[0].text		
+			popis = inzerat.select('.popis')[0].text
+			cena = inzerat.select('.inzeratycena')[0].text
+			data.append({"Nadpis": nadpis, "Popis": popis, "Cena": cena})
+		db_zapis(data,kategoria)
+def db_zapis(data, kategoria):
 	kurzor = db.cursor()
-	SQL = "INSERT INTO bazar_raw (nazov, popis, cena, nazov_md5, popis_md5, odtlacok) VALUES (%s, %s, %s, %s, %s, %s)"
+	SQL = "INSERT INTO bazar_raw (nazov, popis, cena, nazov_md5, popis_md5, odtlacok, kategoria) VALUES (%s, %s, %s, %s, %s, %s, %s)"
 	for a in range(len(data)):
 		nazov_md5 = hashlib.md5(data[a]["Nadpis"].encode("utf-8")).hexdigest()
 		popis_md5 = hashlib.md5(data[a]["Popis"].encode("utf-8")).hexdigest()
 		odtlacok_c = nazov_md5 + popis_md5
 		odtlacok = hashlib.md5(odtlacok_c.encode("utf-8")).hexdigest()
-		val = (data[a]["Nadpis"], data[a]["Popis"], data[a]["Cena"], nazov_md5, popis_md5, odtlacok)
+		val = (data[a]["Nadpis"], data[a]["Popis"], data[a]["Cena"], nazov_md5, popis_md5, odtlacok, kategoria)
 		kurzor.execute(SQL,val)
 	db.commit()
+	data = []
 
 if __name__ == "__main__":
-	x = threading.Thread(target=agg, args=(1, "https://auto.bazos.sk/",), daemon=True)
-	x.start()
-	x.join()
+	url_list = get_url()
+	for l in list:
+		print(l)
+
+	#x = threading.Thread(target=agg, args=(1, "https://auto.bazos.sk/",), daemon=True)
+	#x.start()
+	#x.join()
