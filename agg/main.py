@@ -1,3 +1,4 @@
+import sys
 from multiprocessing import Process
 import os
 import requests
@@ -10,7 +11,6 @@ from bs4 import BeautifulSoup
 import mysql.connector
 from pprint import pprint
 
-data = []
 
 
 def get_url():
@@ -31,7 +31,7 @@ def agg(cislo,url):
 	database = "bazar"
 	)
 	kurzor = db.cursor()
-	SQL = "INSERT INTO bazar_raw (nazov, popis, cena, nazov_md5, popis_md5, odtlacok, kategoria) VALUES (%s, %s, %s, %s, %s, %s, %s)"
+	SQL = "INSERT INTO bazar_raw (nazov, popis, cena, nazov_md5, popis_md5, odtlacok, kategoria, url) VALUES (%s , %s ,%s, %s, %s, %s, %s, %s)"
 
 	url_pocet = url + "9999999999999999999" + "/" 
 	strankovanie_req = requests.get(url_pocet).text
@@ -45,13 +45,18 @@ def agg(cislo,url):
 	k = 20
 	host = url.partition('://')[2]
 	kategoriaa = host.partition('.')[0]
+	pocetk = pocet*20
 	for f in range(pocet):
 		url2 = url + str(k) + "/"
+		if k == pocetk:
+			sys.exit()
+			break 
 		k = k+20	
 		stranka = requests.get(url2).text
 		soup = BeautifulSoup(stranka, 'html.parser')
 		a = soup.find_all("div", class_="inzeraty inzeratyflex")
 		for inzerat in a:
+			adresa = inzerat.select('.nadpis')[0].find('a', href=True)['href']
 			nadpis = inzerat.select('.nadpis')[0].text		
 			popis = inzerat.select('.popis')[0].text
 			cena = inzerat.select('.inzeratycena')[0].text
@@ -59,12 +64,13 @@ def agg(cislo,url):
 			popis_md5 = hashlib.md5(popis.encode("utf-8")).hexdigest()
 			odtlacok_c = nazov_md5 + popis_md5
 			odtlacok = hashlib.md5(odtlacok_c.encode("utf-8")).hexdigest()
-			val = (nadpis, popis, cena,nazov_md5, popis_md5, odtlacok, kategoriaa)
-			data.append({"Nadpis": nadpis, "Popis": popis, "Cena": cena, "Kategoria":kategoriaa})
+			val = (nadpis, popis, cena,nazov_md5, popis_md5, odtlacok, kategoriaa, adresa)
+			#data.append({"Nadpis": nadpis, "Popis": popis, "Cena": cena, "Kategoria":kategoriaa})
 			kurzor.execute(SQL,val)
-			db.commit()
-			val = ""
+			#db.commit()
+			#val = ""
 			print("Thread " + str(cislo) + " slo spat" + "URL: " + url2)
+		db.commit()
 
 	kurzor.close()
 		#db_zapis(data)
