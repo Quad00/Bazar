@@ -27,7 +27,7 @@ def agg(cislo,url):
 	db = mysql.connector.connect(
 	host = "localhost",
 	user = "root",
-	password="HvDkORF2",
+	password="",
 	database = "bazar"
 	)
 	kurzor = db.cursor()
